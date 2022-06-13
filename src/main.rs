@@ -11,7 +11,7 @@ fn main() -> xcb::Result<()> {
     let screen = conn.get_setup().roots().nth(scr_num as usize).unwrap();
 
     // ask to be the window manager
-    conn.check_request(conn.send_request_checked(&x::ChangeWindowAttributes {
+    conn.send_request_checked(&x::ChangeWindowAttributes {
         window: screen.root(),
         value_list: &[
             x::Cw::EventMask(
@@ -21,7 +21,8 @@ fn main() -> xcb::Result<()> {
                 x::EventMask::PROPERTY_CHANGE
             ),
         ],
-    }))?;
+    });
+    conn.flush()?;
 
     // main loop
     loop {
@@ -32,12 +33,12 @@ fn main() -> xcb::Result<()> {
                 debug!("MapRequest: {:?}", ev);
 
                 // be visible!
-                conn.check_request(conn.send_request_checked(&x::MapWindow {
+                conn.send_request_checked(&x::MapWindow {
                     window: ev.window(),
-                }))?;
+                });
 
                 // position and size
-                conn.check_request(conn.send_request_checked(&x::ConfigureWindow {
+                conn.send_request_checked(&x::ConfigureWindow {
                     window: ev.window(),
                     value_list: &[
                         x::ConfigWindow::X(0),
@@ -45,10 +46,10 @@ fn main() -> xcb::Result<()> {
                         x::ConfigWindow::Width(640),
                         x::ConfigWindow::Height(480),
                     ],
-                }))?;
+                });
 
                 // receive the focus
-                conn.check_request(conn.send_request_checked(&x::ChangeWindowAttributes {
+                conn.send_request_checked(&x::ChangeWindowAttributes {
                     window: ev.window(),
                     value_list: &[
                         x::Cw::EventMask(
@@ -56,7 +57,9 @@ fn main() -> xcb::Result<()> {
                             x::EventMask::FOCUS_CHANGE
                         ),
                     ],
-                }))?;
+                });
+
+                conn.flush()?;
             },
 
             e => {
