@@ -166,14 +166,14 @@ fn main() -> xcb::Result<()> {
                         ButtonState::Left => {
 
                             // XXX include border width
-                            let win_width = geometry.width() as usize;
-                            let win_height = geometry.height() as usize;
+                            let win_width = geometry.width() as i32;
+                            let win_height = geometry.height() as i32;
 
-                            let scr_width = screen.width_in_pixels() as usize;
-                            let scr_height = screen.height_in_pixels() as usize;
+                            let scr_width = screen.width_in_pixels() as i32;
+                            let scr_height = screen.height_in_pixels() as i32;
 
-                            let ptr_x = pointer.root_x() as usize;
-                            let ptr_y = pointer.root_y() as usize;
+                            let ptr_x = pointer.root_x() as i32;
+                            let ptr_y = pointer.root_y() as i32;
 
                             let new_x = if ptr_x + win_width > scr_width {
                                 scr_width - win_width
@@ -191,8 +191,8 @@ fn main() -> xcb::Result<()> {
                             conn.send_request_checked(&x::ConfigureWindow {
                                 window: win,
                                 value_list: &[
-                                    x::ConfigWindow::X(new_x as i32),
-                                    x::ConfigWindow::Y(new_y as i32),
+                                    x::ConfigWindow::X(new_x),
+                                    x::ConfigWindow::Y(new_y),
                                 ],
                             });
                             conn.flush()?;
@@ -200,11 +200,11 @@ fn main() -> xcb::Result<()> {
 
                         ButtonState::Right => {
 
-                            let win_x = geometry.x() as usize;
-                            let win_y = geometry.y() as usize;
+                            let win_x = geometry.x() as i32;
+                            let win_y = geometry.y() as i32;
 
-                            let ptr_x = pointer.root_x() as usize;
-                            let ptr_y = pointer.root_y() as usize;
+                            let ptr_x = pointer.root_x() as i32;
+                            let ptr_y = pointer.root_y() as i32;
 
                             // XXX include border width
                             let new_width = ptr_x - win_x;
