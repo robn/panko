@@ -227,6 +227,20 @@ fn main() -> xcb::Result<()> {
                 }
             },
 
+            xcb::Event::X(x::Event::EnterNotify(ev)) => {
+                debug!("EnterNotify: {:?}", ev);
+
+                // focus follows mouse :)
+                conn.send_request_checked(&x::ConfigureWindow {
+                    window: ev.event(),
+                    value_list: &[
+                        x::ConfigWindow::StackMode(x::StackMode::Above),
+                    ],
+                });
+
+                conn.flush()?;
+            },
+
             e => {
                 debug!("UNHANDLED: {:?}", e);
             }
