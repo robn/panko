@@ -1,6 +1,8 @@
 use xcb::{x, Xid};
 use log::debug;
 
+const BORDER_WIDTH: i32 = 2;
+
 fn main() -> xcb::Result<()> {
     env_logger::Builder::new().parse_default_env().init();
 
@@ -92,6 +94,7 @@ fn main() -> xcb::Result<()> {
                         x::ConfigWindow::Y(0),
                         x::ConfigWindow::Width(640),
                         x::ConfigWindow::Height(480),
+                        x::ConfigWindow::BorderWidth(BORDER_WIDTH as u32),
                     ],
                 });
 
@@ -195,9 +198,8 @@ fn main() -> xcb::Result<()> {
                     match drag_state.button {
                         DragButton::Left => {
 
-                            // XXX include border width
-                            let win_width = geometry.width() as i32;
-                            let win_height = geometry.height() as i32;
+                            let win_width = geometry.width() as i32 + 2*BORDER_WIDTH;
+                            let win_height = geometry.height() as i32 + 2*BORDER_WIDTH;
 
                             let scr_width = screen.width_in_pixels() as i32;
                             let scr_height = screen.height_in_pixels() as i32;
@@ -243,9 +245,8 @@ fn main() -> xcb::Result<()> {
                             let ptr_x = pointer.root_x() as i32;
                             let ptr_y = pointer.root_y() as i32;
 
-                            // XXX include border width
-                            let new_width = ptr_x - win_x + 1;
-                            let new_height = ptr_y - win_y + 1;
+                            let new_width = ptr_x - win_x + 1 - BORDER_WIDTH*2;
+                            let new_height = ptr_y - win_y + 1 - BORDER_WIDTH*2;
 
                             if new_width >= 32 && new_height >= 32 {
                                 debug!("resizing window: {},{}", new_width, new_height);
