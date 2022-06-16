@@ -269,11 +269,10 @@ fn main() -> xcb::Result<()> {
                 debug!("EnterNotify: {:?}", ev);
 
                 // focus follows mouse :)
-                conn.send_request_checked(&x::ConfigureWindow {
-                    window: ev.event(),
-                    value_list: &[
-                        x::ConfigWindow::StackMode(x::StackMode::Above),
-                    ],
+                conn.send_request_checked(&x::SetInputFocus {
+                    revert_to: x::InputFocus::PointerRoot,
+                    focus: ev.event(),
+                    time: x::CURRENT_TIME,
                 });
 
                 conn.flush()?;
