@@ -244,8 +244,8 @@ fn main() -> xcb::Result<()> {
                             let ptr_y = pointer.root_y() as i32;
 
                             // XXX include border width
-                            let new_width = ptr_x - win_x;
-                            let new_height = ptr_y - win_y;
+                            let new_width = ptr_x - win_x + 1;
+                            let new_height = ptr_y - win_y + 1;
 
                             if new_width >= 32 && new_height >= 32 {
                                 debug!("resizing window: {},{}", new_width, new_height);
