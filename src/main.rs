@@ -59,8 +59,17 @@ fn main() -> xcb::Result<()> {
     conn.flush()?;
 
     #[derive(Clone, Copy)]
-    enum ButtonState { Left, Right }
-    let mut button_down: Option<(ButtonState, x::Window)> = None;
+    enum DragButton { Left, Right }
+
+    #[derive(Clone, Copy)]
+    struct DragState {
+        button: DragButton,
+        window: x::Window,
+        off_x: i16,
+        off_y: i16,
+    }
+
+    let mut drag_state: Option<DragState> = None;
 
     // main loop
     loop {
@@ -129,12 +138,33 @@ fn main() -> xcb::Result<()> {
                     time: x::CURRENT_TIME,
                 });
 
+                // will need window geometry to compute drag offset
+                let geometry_cookie = conn.send_request(&x::GetGeometry {
+                    drawable: x::Drawable::Window(ev.child()),
+                });
+
                 conn.flush()?;
 
+                let geometry = conn.wait_for_reply(geometry_cookie)?;
+                let off_x = ev.root_x() - geometry.x();
+                let off_y = ev.root_y() - geometry.y();
+
+                debug!(">>> OFFSET X {} Y {}", off_x, off_y);
+
                 // record window
-                button_down = match ev.detail() {
-                    1 => Some((ButtonState::Left, ev.child())),
-                    3 => Some((ButtonState::Right, ev.child())),
+                drag_state = match ev.detail() {
+                    1 => Some(DragState {
+                        button: DragButton::Left,
+                        window: ev.child(),
+                        off_x,
+                        off_y,
+                    }),
+                    3 => Some(DragState {
+                        button: DragButton::Right,
+                        window: ev.child(),
+                        off_x,
+                        off_y,
+                    }),
                     _ => None,
                 };
             },
@@ -148,22 +178,22 @@ fn main() -> xcb::Result<()> {
                 });
                 conn.flush()?;
 
-                button_down = None;
+                drag_state = None;
             },
 
             xcb::Event::X(x::Event::MotionNotify(ev)) => {
                 debug!("MotionNotify: {:?}", ev);
 
-                if let Some((button, win)) = button_down {
+                if let Some(drag_state) = drag_state {
                     let pointer = conn.wait_for_reply(conn.send_request(&x::QueryPointer {
                         window: screen.root(),
                     }))?;
                     let geometry = conn.wait_for_reply(conn.send_request(&x::GetGeometry {
-                        drawable: x::Drawable::Window(win),
+                        drawable: x::Drawable::Window(drag_state.window),
                     }))?;
 
-                    match button {
-                        ButtonState::Left => {
+                    match drag_state.button {
+                        DragButton::Left => {
 
                             // XXX include border width
                             let win_width = geometry.width() as i32;
@@ -172,15 +202,22 @@ fn main() -> xcb::Result<()> {
                             let scr_width = screen.width_in_pixels() as i32;
                             let scr_height = screen.height_in_pixels() as i32;
 
-                            let ptr_x = pointer.root_x() as i32;
-                            let ptr_y = pointer.root_y() as i32;
+                            let off_x = drag_state.off_x as i32;
+                            let off_y = drag_state.off_y as i32;
 
-                            let new_x = if ptr_x + win_width > scr_width {
+                            let ptr_x = pointer.root_x() as i32 - off_x;
+                            let ptr_y = pointer.root_y() as i32 - off_y;
+
+                            let new_x = if ptr_x <= 0 {
+                                0
+                            } else if ptr_x + win_width > scr_width {
                                 scr_width - win_width
                             } else {
                                 ptr_x
                             };
-                            let new_y = if ptr_y + win_height > scr_height {
+                            let new_y = if ptr_y <= 0 {
+                                0
+                            } else if ptr_y + win_height > scr_height {
                                 scr_height - win_height
                             } else {
                                 ptr_y
@@ -189,7 +226,7 @@ fn main() -> xcb::Result<()> {
                             debug!("moving window: {},{}", new_x, new_y);
 
                             conn.send_request_checked(&x::ConfigureWindow {
-                                window: win,
+                                window: drag_state.window,
                                 value_list: &[
                                     x::ConfigWindow::X(new_x),
                                     x::ConfigWindow::Y(new_y),
@@ -198,7 +235,7 @@ fn main() -> xcb::Result<()> {
                             conn.flush()?;
                         },
 
-                        ButtonState::Right => {
+                        DragButton::Right => {
 
                             let win_x = geometry.x() as i32;
                             let win_y = geometry.y() as i32;
@@ -214,7 +251,7 @@ fn main() -> xcb::Result<()> {
                                 debug!("resizing window: {},{}", new_width, new_height);
 
                                 conn.send_request_checked(&x::ConfigureWindow {
-                                    window: win,
+                                    window: drag_state.window,
                                     value_list: &[
                                         x::ConfigWindow::Width(new_width as u32),
                                         x::ConfigWindow::Height(new_height as u32),
