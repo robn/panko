@@ -278,6 +278,32 @@ fn main() -> xcb::Result<()> {
                 conn.flush()?;
             },
 
+            xcb::Event::X(x::Event::FocusIn(ev)) => {
+                debug!("FocusIn: {:?}", ev);
+
+                conn.send_request_checked(&x::ChangeWindowAttributes {
+                    window: ev.event(),
+                    value_list: &[
+                        x::Cw::BorderPixel(0x0055ff),
+                    ],
+                });
+
+                conn.flush()?;
+            },
+
+            xcb::Event::X(x::Event::FocusOut(ev)) => {
+                debug!("FocusOut: {:?}", ev);
+
+                conn.send_request_checked(&x::ChangeWindowAttributes {
+                    window: ev.event(),
+                    value_list: &[
+                        x::Cw::BorderPixel(0x000000),
+                    ],
+                });
+
+                conn.flush()?;
+            },
+
             e => {
                 debug!("UNHANDLED: {:?}", e);
             }
