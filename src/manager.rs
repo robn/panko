@@ -77,10 +77,10 @@ impl Manager {
     }
 
     pub fn run(&mut self) -> xcb::Result<()> {
-        #[derive(Clone, Copy)]
+        #[derive(Clone, Copy, Debug)]
         enum DragButton { Left, Right }
 
-        #[derive(Clone, Copy)]
+        #[derive(Clone, Copy, Debug)]
         struct DragState {
             button: DragButton,
             window: x::Window,
@@ -95,7 +95,13 @@ impl Manager {
 
                 // client wants to be displayed
                 xcb::Event::X(x::Event::MapRequest(ev)) => {
-                    debug!("MapRequest: {:?}", ev);
+                    // XXX some policy or whatever
+                    let x = 0;
+                    let y = 0;
+                    let w = 640;
+                    let h = 480;
+
+                    debug!("mapping {:?} to {},{} {}x{}", ev.window(), x, y, w, h);
 
                     // be visible!
                     self.conn.send_request_checked(&x::MapWindow {
@@ -106,10 +112,10 @@ impl Manager {
                     self.conn.send_request_checked(&x::ConfigureWindow {
                         window: ev.window(),
                         value_list: &[
-                            x::ConfigWindow::X(0),
-                            x::ConfigWindow::Y(0),
-                            x::ConfigWindow::Width(640),
-                            x::ConfigWindow::Height(480),
+                            x::ConfigWindow::X(x),
+                            x::ConfigWindow::Y(y),
+                            x::ConfigWindow::Width(w),
+                            x::ConfigWindow::Height(h),
                             x::ConfigWindow::BorderWidth(BORDER_WIDTH as u32),
                         ],
                     });
@@ -130,8 +136,6 @@ impl Manager {
 
                 // Mod4+button inside window area
                 xcb::Event::X(x::Event::ButtonPress(ev)) => {
-                    debug!("ButtonPress: {:?}", ev);
-
                     // ignore if we're not over a window
                     if ev.child().is_none() {
                         continue;
@@ -168,8 +172,6 @@ impl Manager {
                     let off_x = ev.root_x() - geometry.x();
                     let off_y = ev.root_y() - geometry.y();
 
-                    debug!(">>> OFFSET X {} Y {}", off_x, off_y);
-
                     // record window
                     drag_state = match ev.detail() {
                         1 => Some(DragState {
@@ -186,11 +188,11 @@ impl Manager {
                         }),
                         _ => None,
                     };
+
+                    debug!("button down on {:?}, drag state {:?}", ev.child(), drag_state);
                 },
 
                 xcb::Event::X(x::Event::ButtonRelease(ev)) => {
-                    debug!("ButtonRelease: {:?}", ev);
-
                     // just release the pointer
                     self.conn.send_request_checked(&x::UngrabPointer {
                         time: x::CURRENT_TIME,
@@ -198,11 +200,11 @@ impl Manager {
                     self.conn.flush()?;
 
                     drag_state = None;
+
+                    debug!("button release on {:?}, drag cleared", ev.child());
                 },
 
-                xcb::Event::X(x::Event::MotionNotify(ev)) => {
-                    debug!("MotionNotify: {:?}", ev);
-
+                xcb::Event::X(x::Event::MotionNotify(_)) => {
                     if let Some(drag_state) = drag_state {
                         let pointer = self.conn.wait_for_reply(self.conn.send_request(&x::QueryPointer {
                             window: self.screen.root(),
@@ -241,7 +243,7 @@ impl Manager {
                                     ptr_y
                                 };
 
-                                debug!("moving window: {},{}", new_x, new_y);
+                                debug!("moving {:?} to {},{}", drag_state.window, new_x, new_y);
 
                                 self.conn.send_request_checked(&x::ConfigureWindow {
                                     window: drag_state.window,
@@ -265,7 +267,7 @@ impl Manager {
                                 let new_height = ptr_y - win_y + 1 - BORDER_WIDTH*2;
 
                                 if new_width >= 32 && new_height >= 32 {
-                                    debug!("resizing window: {},{}", new_width, new_height);
+                                    debug!("resizing {:?} to {}x{}", drag_state.window, new_width, new_height);
 
                                     self.conn.send_request_checked(&x::ConfigureWindow {
                                         window: drag_state.window,
@@ -282,7 +284,7 @@ impl Manager {
                 },
 
                 xcb::Event::X(x::Event::EnterNotify(ev)) => {
-                    debug!("EnterNotify: {:?}", ev);
+                    debug!("pointer entered {:?}, focusing", ev.event());
 
                     // focus follows mouse :)
                     self.conn.send_request_checked(&x::SetInputFocus {
@@ -295,7 +297,7 @@ impl Manager {
                 },
 
                 xcb::Event::X(x::Event::FocusIn(ev)) => {
-                    debug!("FocusIn: {:?}", ev);
+                    debug!("{:?} received focus", ev.event());
 
                     self.conn.send_request_checked(&x::ChangeWindowAttributes {
                         window: ev.event(),
@@ -308,7 +310,7 @@ impl Manager {
                 },
 
                 xcb::Event::X(x::Event::FocusOut(ev)) => {
-                    debug!("FocusOut: {:?}", ev);
+                    debug!("{:?} lost focus", ev.event());
 
                     self.conn.send_request_checked(&x::ChangeWindowAttributes {
                         window: ev.event(),
@@ -319,6 +321,16 @@ impl Manager {
 
                     self.conn.flush()?;
                 },
+
+                // silence debug for ones we aren't interested in
+                xcb::Event::X(x::Event::ConfigureRequest(_)) => {},
+
+                xcb::Event::X(x::Event::ConfigureNotify(_)) => {},
+                xcb::Event::X(x::Event::MapNotify(_)) => {},
+                xcb::Event::X(x::Event::UnmapNotify(_)) => {},
+                xcb::Event::X(x::Event::MappingNotify(_)) => {},
+
+                xcb::Event::X(x::Event::ClientMessage(_)) => {},
 
                 e => {
                     debug!("UNHANDLED: {:?}", e);
