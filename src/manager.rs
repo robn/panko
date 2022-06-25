@@ -11,6 +11,19 @@ pub struct Manager {
     pub screen: x::ScreenBuf,
 
     pub windows: HashMap<x::Window, Window>,
+
+    drag_state: Option<DragState>,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum DragButton { Left, Right }
+
+#[derive(Clone, Copy, Debug)]
+struct DragState {
+    button: DragButton,
+    window: x::Window,
+    off_x: i16,
+    off_y: i16,
 }
 
 impl Manager {
@@ -73,23 +86,11 @@ impl Manager {
             conn,
             screen,
             windows: HashMap::default(),
+            drag_state: None,
         })
     }
 
     pub fn run(&mut self) -> xcb::Result<()> {
-        #[derive(Clone, Copy, Debug)]
-        enum DragButton { Left, Right }
-
-        #[derive(Clone, Copy, Debug)]
-        struct DragState {
-            button: DragButton,
-            window: x::Window,
-            off_x: i16,
-            off_y: i16,
-        }
-
-        let mut drag_state: Option<DragState> = None;
-
         loop {
             match self.conn.wait_for_event()? {
 
@@ -189,7 +190,7 @@ impl Manager {
                     let off_y = ev.root_y() - geometry.y();
 
                     // record window
-                    drag_state = match ev.detail() {
+                    self.drag_state = match ev.detail() {
                         1 => Some(DragState {
                             button: DragButton::Left,
                             window: ev.child(),
@@ -205,7 +206,7 @@ impl Manager {
                         _ => None,
                     };
 
-                    debug!("button down on {:?}, drag state {:?}", ev.child(), drag_state);
+                    debug!("button down on {:?}, drag state {:?}", ev.child(), self.drag_state);
                 },
 
                 xcb::Event::X(x::Event::ButtonRelease(ev)) => {
@@ -215,13 +216,13 @@ impl Manager {
                     });
                     self.conn.flush()?;
 
-                    drag_state = None;
+                    self.drag_state = None;
 
                     debug!("button release on {:?}, drag cleared", ev.child());
                 },
 
                 xcb::Event::X(x::Event::MotionNotify(_)) => {
-                    if let Some(drag_state) = drag_state {
+                    if let Some(drag_state) = self.drag_state {
                         let pointer = self.conn.wait_for_reply(self.conn.send_request(&x::QueryPointer {
                             window: self.screen.root(),
                         }))?;
