@@ -1,11 +1,16 @@
 use xcb::{x, Connection, Xid};
 use log::debug;
+use std::collections::HashMap;
+
+use crate::window::Window;
 
 const BORDER_WIDTH: i32 = 2;
 
 pub struct Manager {
     pub conn: Connection,
     pub screen: x::ScreenBuf,
+
+    pub windows: HashMap<x::Window, Window>,
 }
 
 impl Manager {
@@ -67,10 +72,11 @@ impl Manager {
         Ok(Manager {
             conn,
             screen,
+            windows: HashMap::default(),
         })
     }
 
-    pub fn run(&self) -> xcb::Result<()> {
+    pub fn run(&mut self) -> xcb::Result<()> {
         #[derive(Clone, Copy)]
         enum DragButton { Left, Right }
 
