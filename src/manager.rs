@@ -93,6 +93,22 @@ impl Manager {
         loop {
             match self.conn.wait_for_event()? {
 
+                // new client, just track it
+                xcb::Event::X(x::Event::CreateNotify(ev)) => {
+                    debug!("new window: {:?}", ev.window());
+
+                    self.windows.insert(ev.window(), Window {
+                        x_window: ev.window(),
+                    });
+                },
+
+                // window gone, forget it
+                xcb::Event::X(x::Event::DestroyNotify(ev)) => {
+                    debug!("window destroyed: {:?}", ev.window());
+
+                    self.windows.remove(&ev.window());
+                }
+
                 // client wants to be displayed
                 xcb::Event::X(x::Event::MapRequest(ev)) => {
                     // XXX some policy or whatever
