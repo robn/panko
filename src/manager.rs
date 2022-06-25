@@ -90,6 +90,25 @@ impl Manager {
         })
     }
 
+    pub fn attach_existing_windows(&mut self) -> xcb::Result<()> {
+        let query_cookie = self.conn.send_request(&x::QueryTree {
+            window: self.screen.root(),
+        });
+        self.conn.flush()?;
+
+        let reply = self.conn.wait_for_reply(query_cookie)?;
+
+        self.windows.clear();
+        reply.children().iter().for_each(|&w| {
+            debug!("existing window: {:?}", w);
+            self.windows.insert(w, Window {
+                x_window: w,
+            });
+        });
+
+        Ok(())
+    }
+
     pub fn run(&mut self) -> xcb::Result<()> {
         loop {
             match self.conn.wait_for_event()? {
