@@ -104,7 +104,11 @@ impl Manager {
             self.windows.insert(w, Window {
                 x_window: w,
             });
+
+            self.map_window(w);
         });
+
+        self.conn.flush()?;
 
         Ok(())
     }
@@ -131,42 +135,7 @@ impl Manager {
 
                 // client wants to be displayed
                 xcb::Event::X(x::Event::MapRequest(ev)) => {
-                    // XXX some policy or whatever
-                    let x = 0;
-                    let y = 0;
-                    let w = 640;
-                    let h = 480;
-
-                    debug!("mapping {:?} to {},{} {}x{}", ev.window(), x, y, w, h);
-
-                    // be visible!
-                    self.conn.send_request_checked(&x::MapWindow {
-                        window: ev.window(),
-                    });
-
-                    // position and size
-                    self.conn.send_request_checked(&x::ConfigureWindow {
-                        window: ev.window(),
-                        value_list: &[
-                            x::ConfigWindow::X(x),
-                            x::ConfigWindow::Y(y),
-                            x::ConfigWindow::Width(w),
-                            x::ConfigWindow::Height(h),
-                            x::ConfigWindow::BorderWidth(BORDER_WIDTH as u32),
-                        ],
-                    });
-
-                    // receive the focus
-                    self.conn.send_request_checked(&x::ChangeWindowAttributes {
-                        window: ev.window(),
-                        value_list: &[
-                            x::Cw::EventMask(
-                                x::EventMask::ENTER_WINDOW |
-                                x::EventMask::FOCUS_CHANGE
-                            ),
-                        ],
-                    });
-
+                    self.map_window(ev.window());
                     self.conn.flush()?;
                 },
 
@@ -373,5 +342,43 @@ impl Manager {
                 }
             }
         }
+    }
+
+    fn map_window(&mut self, window: x::Window) {
+        // XXX some policy or whatever
+        let x = 0;
+        let y = 0;
+        let w = 640;
+        let h = 480;
+
+        debug!("mapping {:?} to {},{} {}x{}", window, x, y, w, h);
+
+        // be visible!
+        self.conn.send_request_checked(&x::MapWindow {
+            window: window,
+        });
+
+        // position and size
+        self.conn.send_request_checked(&x::ConfigureWindow {
+            window: window,
+            value_list: &[
+                x::ConfigWindow::X(x),
+                x::ConfigWindow::Y(y),
+                x::ConfigWindow::Width(w),
+                x::ConfigWindow::Height(h),
+                x::ConfigWindow::BorderWidth(BORDER_WIDTH as u32),
+            ],
+        });
+
+        // receive the focus
+        self.conn.send_request_checked(&x::ChangeWindowAttributes {
+            window: window,
+            value_list: &[
+                x::Cw::EventMask(
+                    x::EventMask::ENTER_WINDOW |
+                    x::EventMask::FOCUS_CHANGE
+                ),
+            ],
+        });
     }
 }
