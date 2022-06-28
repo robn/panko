@@ -54,7 +54,20 @@ impl Manager {
             modifiers: x::ModMask::ANY,
         });
 
-        // grab Mod4+Left
+        // grab Left (click to raise)
+        conn.send_request_checked(&x::GrabButton {
+            owner_events: false,
+            grab_window: screen.root(),
+            event_mask: x::EventMask::BUTTON_PRESS,
+            pointer_mode: x::GrabMode::Async,
+            keyboard_mode: x::GrabMode::Async,
+            confine_to: screen.root(),
+            cursor: x::CURSOR_NONE,
+            button: x::ButtonIndex::N1,
+            modifiers: x::ModMask::empty(),
+        });
+
+        // grab Mod4+Left (drag to move)
         conn.send_request_checked(&x::GrabButton {
             owner_events: false,
             grab_window: screen.root(),
@@ -67,7 +80,7 @@ impl Manager {
             modifiers: x::ModMask::N4,
         });
 
-        // grab Mod4+Right
+        // grab Mod4+Right (drag to resize)
         conn.send_request_checked(&x::GrabButton {
             owner_events: false,
             grab_window: screen.root(),
@@ -137,6 +150,25 @@ impl Manager {
                 xcb::Event::X(x::Event::MapRequest(ev)) => {
                     self.map_window(ev.window());
                     self.conn.flush()?;
+                },
+
+                // left button inside window area
+                xcb::Event::X(x::Event::ButtonPress(ev)) if ev.state().is_empty() => {
+                    // ignore if we're not over a window
+                    if ev.child().is_none() {
+                        continue;
+                    }
+
+                    // bring window to front
+                    self.conn.send_request_checked(&x::ConfigureWindow {
+                        window: ev.child(),
+                        value_list: &[
+                            x::ConfigWindow::StackMode(x::StackMode::Above),
+                        ],
+                    });
+                    self.conn.flush()?;
+
+                    debug!("click on {:?}, raised", ev.child());
                 },
 
                 // Mod4+button inside window area
