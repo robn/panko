@@ -113,12 +113,32 @@ impl Manager {
 
         self.windows.clear();
         reply.children().iter().for_each(|&w| {
-            debug!("existing window: {:?}", w);
-            self.windows.insert(w, Window {
-                x_window: w,
+            let attr_cookie = self.conn.send_request(&x::GetWindowAttributes {
+                window: w,
             });
 
-            self.map_window(w);
+            let do_map = match self.conn.wait_for_reply(attr_cookie) {
+                Err(e) => {
+                    debug!("couldn't get window attrs: {:?}", e);
+                    false
+                },
+                Ok(attrs) => {
+                    debug!("existing window {:?}, attrs {:?}", w, attrs);
+
+                    // map the window if its not already mapped and not managed by someone else
+                    attrs.map_state() != x::MapState::Unmapped && !attrs.override_redirect()
+                },
+            };
+
+            if do_map {
+                debug!("mapping existing window {:?}", w);
+
+                self.windows.insert(w, Window {
+                    x_window: w,
+                });
+
+                self.map_window(w);
+            }
         });
 
         self.conn.flush()?;
