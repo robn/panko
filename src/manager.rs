@@ -104,15 +104,13 @@ impl Manager {
     }
 
     pub fn attach_existing_windows(&mut self) -> xcb::Result<()> {
-        let query_cookie = self.conn.send_request(&x::QueryTree {
-            window: self.screen.root(),
-        });
-        self.conn.flush()?;
-
-        let reply = self.conn.wait_for_reply(query_cookie)?;
-
         self.windows.clear();
-        reply.children().iter().for_each(|&w| {
+
+        let tree = self.conn.wait_for_reply(self.conn.send_request(&x::QueryTree {
+            window: self.screen.root(),
+        }))?;
+
+        tree.children().iter().for_each(|&w| {
             let attr_cookie = self.conn.send_request(&x::GetWindowAttributes {
                 window: w,
             });
@@ -219,13 +217,9 @@ impl Manager {
                     });
 
                     // will need window geometry to compute drag offset
-                    let geometry_cookie = self.conn.send_request(&x::GetGeometry {
+                    let geometry = self.conn.wait_for_reply(self.conn.send_request(&x::GetGeometry {
                         drawable: x::Drawable::Window(ev.child()),
-                    });
-
-                    self.conn.flush()?;
-
-                    let geometry = self.conn.wait_for_reply(geometry_cookie)?;
+                    }))?;
                     let off_x = ev.root_x() - geometry.x();
                     let off_y = ev.root_y() - geometry.y();
 
