@@ -382,12 +382,8 @@ impl Manager {
 
         debug!("mapping {:?} to {},{} {}x{}", window, x, y, w, h);
 
-        // be visible!
-        self.conn.send_request_checked(&x::MapWindow {
-            window: window,
-        });
-
         // position and size
+        // XXX maybe we should take defaults or preferences from ConfigureRequest
         self.conn.send_request_checked(&x::ConfigureWindow {
             window: window,
             value_list: &[
@@ -408,6 +404,11 @@ impl Manager {
                     x::EventMask::FOCUS_CHANGE
                 ),
             ],
+        });
+
+        // be visible!
+        self.conn.send_request_checked(&x::MapWindow {
+            window: window,
         });
     }
 
