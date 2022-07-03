@@ -416,7 +416,7 @@ impl Manager {
             ],
         });
 
-        // receive the focus
+        // request enter and focus events
         self.conn.send_request_checked(&x::ChangeWindowAttributes {
             window: window,
             value_list: &[
