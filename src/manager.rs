@@ -178,15 +178,8 @@ impl Manager {
                     }
 
                     // bring window to front
-                    self.conn.send_request_checked(&x::ConfigureWindow {
-                        window: ev.child(),
-                        value_list: &[
-                            x::ConfigWindow::StackMode(x::StackMode::Above),
-                        ],
-                    });
+                    self.bring_window_to_front(ev.child());
                     self.conn.flush()?;
-
-                    debug!("click on {:?}, raised", ev.child());
                 },
 
                 // Mod4+button inside window area
@@ -197,12 +190,7 @@ impl Manager {
                     }
 
                     // bring window to front
-                    self.conn.send_request_checked(&x::ConfigureWindow {
-                        window: ev.child(),
-                        value_list: &[
-                            x::ConfigWindow::StackMode(x::StackMode::Above),
-                        ],
-                    });
+                    self.bring_window_to_front(ev.child());
 
                     // grab the pointer for window move
                     self.conn.send_request(&x::GrabPointer {
@@ -338,12 +326,7 @@ impl Manager {
                     debug!("pointer entered {:?}, focusing", ev.event());
 
                     // focus follows mouse :)
-                    self.conn.send_request_checked(&x::SetInputFocus {
-                        revert_to: x::InputFocus::PointerRoot,
-                        focus: ev.event(),
-                        time: x::CURRENT_TIME,
-                    });
-
+                    self.focus_window(ev.event());
                     self.conn.flush()?;
                 },
 
@@ -426,5 +409,24 @@ impl Manager {
                 ),
             ],
         });
+    }
+
+    fn bring_window_to_front(&mut self, window: x::Window) {
+        self.conn.send_request_checked(&x::ConfigureWindow {
+            window: window,
+            value_list: &[
+                x::ConfigWindow::StackMode(x::StackMode::Above),
+            ],
+        });
+        debug!("raised {:?}", window);
+    }
+
+    fn focus_window(&mut self, window: x::Window) {
+        self.conn.send_request_checked(&x::SetInputFocus {
+            revert_to: x::InputFocus::PointerRoot,
+            focus: window,
+            time: x::CURRENT_TIME,
+        });
+        debug!("focused {:?}", window);
     }
 }
